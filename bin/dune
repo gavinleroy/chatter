@@ -1,0 +1,3 @@
+(executable
+  (name chatter)
+  (libraries eio_main lib cmdliner))
