@@ -1,31 +1,34 @@
 open Eio.Std
 
-(* REMEMBER: a socket, is essentially a capability. If a client has *)
-(* connected with you, the connection itself is means for communication. *)
+let traceln fmt = traceln ("[TRACE server]: " ^^ fmt)
 
-(* Prefix all trace output with "server: " *)
-let traceln fmt = traceln ("server: " ^^ fmt)
+(* Server handshake send / receive *)
 
-module Read = Eio.Buf_read
-
-(* Read one line from [client] and respond with "OK". *)
-let handle_client flow addr =
-  traceln "Accepted connection from %a" Eio.Net.Sockaddr.pp addr;
-  (* We use a buffered reader because we may need to combine multiple reads
-     to get a single line (or we may get multiple lines in a single read,
-     although here we only use the first one). *)
-
-  let from_client = Read.of_flow flow ~max_size:100 in
-
-  traceln "Received from client: %S" (Read.line from_client);
-  Eio.Flow.copy_string "OK" flow
+let rec server_logic ~socket =
+  let message = Protocol.receive_string ~socket in
+  traceln "Received from client: %S" message;
+  server_logic ~socket
 
 
-(* TODO write your own thing and stop relying on the run_server function. *)
-(* Accept incoming client connections on [socket].
-   We can handle multiple clients at the same time.
-   Never returns (but can be cancelled). *)
-let run socket =
-  Eio.Net.run_server socket handle_client
-    ~on_error:(traceln "Error handling connection: %a" Fmt.exn)
-    ~max_connections:1000
+let run_as_server ~socket =
+  try
+    Protocol.run_handshake_seq ~socket
+      Protocol.server_handshake_seq;
+    server_logic ~socket
+  with
+    Protocol.InvalidHandshake ->
+      traceln "Ignoring client, invalid handshake"
+
+
+let run ~net ~addr =
+  traceln "Accepting connections on %a" Eio.Net.Sockaddr.pp addr;
+  Switch.run @@ fun sw ->
+  let listening_on = Eio.Net.listen net ~sw addr ~backlog:5 in
+  while true do
+    (* NOTE: use `accept` to ensure single connections at a time.
+       To allow multiple clients to connect, `accept_fork`,
+       which starts a handler in a new domain, could be used. *)
+    let socket, _ = Eio.Net.accept listening_on ~sw in
+    Fiber.fork ~sw @@ fun () ->
+    run_as_server ~socket
+  done
