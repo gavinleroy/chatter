@@ -1,0 +1,3 @@
+(tests
+ (names server client)
+ (libraries alcotest eio_main lib))

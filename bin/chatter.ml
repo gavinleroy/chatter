@@ -1,29 +1,40 @@
 open Cmdliner
 
 
-(* FIXME: is this really ok? *)
-let server_main _port =
-  let addr = `Tcp (Eio.Net.Ipaddr.V4.loopback, 8080) in
-  Eio_main.run @@ fun env ->
-  let net = Eio.Stdenv.net env in
-  Lib.Server.run ~net ~addr
+(*** ********************* ***)
+(*** Application glue code ***)
+(*** ********************* ***)
 
 
-(* FIXME: is this really ok? *)
-let client_main _addr _port =
-  let addr = `Tcp (Eio.Net.Ipaddr.V4.loopback, 8080) in
+let main addr runner =
   Eio_main.run @@ fun env ->
   let net = Eio.Stdenv.net env
+  and domain_mgr = Eio.Stdenv.domain_mgr env
   and stdin = Eio.Stdenv.stdin env
   and stdout = Eio.Stdenv.stdout env
   and clock = Eio.Stdenv.clock env in
-  (* Test the server: *)
-  Lib.Client.run ~net ~addr ~stdin ~stdout ~clock
+  runner ~domain_mgr ~net ~addr ~stdin ~stdout ~clock
+
+
+let server_main port =
+  let addr = `Tcp (Eio.Net.Ipaddr.V4.loopback, port) in
+  main addr Lib.Server.run
+
+
+let client_main host port =
+  match Ipaddr.of_string host with
+  | Ok v4 ->
+      let v4 = Ipaddr.to_octets v4 |> Eio.Net.Ipaddr.of_raw in
+      let addr = `Tcp (v4, port) in
+      main addr Lib.Client.run
+  | _ ->
+      print_endline "Invalid IpV4 host address"
 
 
 (*** ********************** ***)
 (*** Command-line interface ***)
 (*** ********************** ***)
+
 
 let version = "0.1"
 
@@ -55,5 +66,5 @@ let main_cli =
   let info = Cmd.info name ~doc in
   Cmd.group info [server_cmd; client_cmd]
 
-let () =
-  Stdlib.exit (Cmd.eval main_cli)
+
+let () = Stdlib.exit (Cmd.eval main_cli)

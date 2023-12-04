@@ -20,7 +20,7 @@ let handshake_server_to_client_ok  = 0b1010
 
 
 (* Unexpected message tag, (expected, actual) *)
-exception UnexpectedTag of (int * int)
+exception UnexpectedTag of int
 
 (* Invalid handshake sequence *)
 exception InvalidHandshake
@@ -60,7 +60,7 @@ let receive_handshake expected ~socket =
   let inbound = Read.of_flow socket ~max_size:8 in
   let tag = Read.uint8 inbound in
   if tag <> handshake_tag then
-    raise (UnexpectedTag (handshake_tag, tag));
+    raise (UnexpectedTag tag);
   let body = Read.uint8 inbound in
   if expected_body <> body then
     raise InvalidHandshake
@@ -74,55 +74,70 @@ let run_handshake_seq ~socket ms =
 
 (* Network operations *)
 
-let send_message bytes ~socket =
+let send_message n bytes ~socket =
   let msg_len = Stdlib.Bytes.length bytes in
   Write.with_flow socket @@ fun outbound ->
   Write.uint8 outbound message_tag;
+  WriteInt.uint16 outbound n;
   WriteInt.uint16 outbound msg_len;
   Write.bytes outbound ~len:msg_len bytes
 
 
-let send_acknowledge ~socket =
+let send_acknowledge n ~socket =
   Write.with_flow socket @@ fun outbound ->
-  Write.uint8 outbound acknowledge_tag
+  Write.uint8 outbound acknowledge_tag;
+  WriteInt.uint16 outbound n
 
 
-let receive_acknowledge ~socket =
-  let inbound = Read.of_flow socket ~max_size:8 in
-  let tag = Read.uint8 inbound in
-  if tag <> acknowledge_tag then
-    raise (UnexpectedTag (acknowledge_tag, tag))
+let receive_acknowledge inbound =
+  (* let inbound = Read.of_flow socket ~max_size:8 in *)
+  (* let tag = Read.uint8 inbound in *)
+  (* if tag <> acknowledge_tag then *)
+  (*   raise (UnexpectedTag tag); *)
+  ReadInt.uint16 inbound
 
 
-let receive_message ~socket =
-  let inbound = Read.of_flow socket ~max_size:1_000_000 in
-  let tag = Read.uint8 inbound in
-  if tag <> message_tag then
-    raise (UnexpectedTag (message_tag, tag));
+let receive_message inbound =
+  (* let inbound = Read.of_flow socket ~max_size:1_000_000 in *)
+  (* let tag = Read.uint8 inbound in *)
+  (* if tag <> message_tag then *)
+  (*   raise (UnexpectedTag tag); *)
+
+  let id = ReadInt.uint16 inbound in
   let msg_len = ReadInt.uint16 inbound in
-  Read.take msg_len inbound
-  |> Stdlib.Bytes.of_string
-
-
-let send bytes ~socket ~clock =
-  let time_before = Eio.Time.now clock in
-  send_message bytes ~socket;
-  receive_acknowledge ~socket;
-  let time_after = Eio.Time.now clock in
-  time_after -. time_before
+  id, (Read.take msg_len inbound |> Bytes.of_string)
 
 
 let receive ~socket =
-  let bs = receive_message ~socket in
-  send_acknowledge ~socket;
-  bs
+  let inbound = Read.of_flow socket ~max_size:1_000_000 in
+  let tag = Read.uint8 inbound in
+  if tag = acknowledge_tag then
+    `Acknowledge (receive_acknowledge inbound)
+  else if tag = message_tag then
+    `Message (receive_message inbound)
+  else
+    raise (UnexpectedTag tag)
 
 
-let send_string str ~socket ~clock =
-  Stdlib.Bytes.of_string str
-  |> send ~socket ~clock
+(* let send bytes ~socket ~clock = *)
+(*   let time_before = Eio.Time.now clock in *)
+(*   send_message bytes ~socket; *)
+(*   receive_acknowledge ~socket; *)
+(*   let time_after = Eio.Time.now clock in *)
+(*   time_after -. time_before *)
 
 
-let receive_string ~socket =
-  receive ~socket
-  |> Stdlib.String.of_bytes
+(* let receive ~socket = *)
+(*   let bs = receive_message ~socket in *)
+(*   send_acknowledge ~socket; *)
+(*   bs *)
+
+
+(* let send_string str ~socket ~clock = *)
+(*   Stdlib.Bytes.of_string str *)
+(*   |> send ~socket ~clock *)
+
+
+(* let receive_string ~socket = *)
+(*   receive ~socket *)
+(*   |> Stdlib.String.of_bytes *)

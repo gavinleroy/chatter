@@ -1,34 +1,45 @@
 open Eio.Std
 
-let traceln fmt = traceln ("[TRACE server]: " ^^ fmt)
+module Write = Eio.Buf_write
 
-(* Server handshake send / receive *)
+(* TODO: handle broken pipes and closing clients, the server needs to stay alive. *)
 
-let rec server_logic ~socket =
-  let message = Protocol.receive_string ~socket in
-  traceln "Received from client: %S" message;
-  server_logic ~socket
+(* Uses of [traceln] should be replaced by proper prints. *)
 
-
-let run_as_server ~socket =
+let try_handshake socket =
   try
     Protocol.run_handshake_seq ~socket
       Protocol.server_handshake_seq;
-    server_logic ~socket
+    true
   with
-    Protocol.InvalidHandshake ->
-      traceln "Ignoring client, invalid handshake"
+    Protocol.InvalidHandshake -> false
 
 
-let run ~net ~addr =
+let run ~domain_mgr ~net ~addr ~stdin ~stdout ~clock =
   traceln "Accepting connections on %a" Eio.Net.Sockaddr.pp addr;
   Switch.run @@ fun sw ->
   let listening_on = Eio.Net.listen net ~sw addr ~backlog:5 in
   while true do
+    traceln "Waiting for client.";
     (* NOTE: use `accept` to ensure single connections at a time.
        To allow multiple clients to connect, `accept_fork`,
        which starts a handler in a new domain, could be used. *)
     let socket, _ = Eio.Net.accept listening_on ~sw in
-    Fiber.fork ~sw @@ fun () ->
-    run_as_server ~socket
+    begin
+      if try_handshake socket then
+        traceln "Client connected! Launching chat..."
+      else
+      traceln "Handshake failed, ignoring client";
+      try
+        Chat.start_chat
+          ~sw
+          ~domain_mgr
+          ~socket
+          ~stdout
+          ~stdin
+          ~clock
+      with
+        _ -> ()
+      (* Write.string to_terminal "Client disconnected :(" *)
+    end
   done
