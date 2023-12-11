@@ -1,3 +1,4 @@
 (executable
   (name chatter)
+  (public_name chatter)
   (libraries lib eio_main ipaddr cmdliner))

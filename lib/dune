@@ -1,3 +1,3 @@
 (library
   (name lib)
-  (libraries eio_main))
+  (libraries eio_main mtime))

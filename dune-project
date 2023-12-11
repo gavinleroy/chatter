@@ -1,35 +1,27 @@
 (lang dune 3.4)
 
 (name chatter)
-
 (version 0.1)
-
+(license MIT)
 (authors "Gavin Gray <gavinleroy6@gmail.com>")
+(maintainers "Gavin Gray <gavinleroy6@gmail.com>")
 
-; (implicit_transitive_deps true)
-; (generate_opam_files true)
-; (formatting
-;  (enabled_for dune))
-; (license GPL-3.0-only)
+(source (github gavinleroy/chatter))
 
-; (source
-;  (uri https://githhub.com/gavinleroy/chatter.git))
+(generate_opam_files true)
+(formatting
+ (enabled_for dune))
 
-; (package
-;  (name chatter)
-;  (synopsis
-;   "A simple chat client+server")
-
-;  (depends
-;   ; tyre
-;   ; (alcotest :with-test)
-;   (ocaml
-;    (>= 5.1))
-;   ; (ocaml-lsp-server :with-doc)
-;   ; (ocp-indent :with-doc)
-;   ; (odig :with-doc)
-;   ; (odoc :with-doc)
-;   ; (utop :with-test)
-;   dune))
+(package 
+  (name chatter)
+  (synopsis "peer-to-peer chat application using Eio")
+  (depends
+    cmdliner
+    mtime
+    ipaddr
+    (alcotest :with-test)
+    (eio_main (= 0.13))
+    (ocaml (= 5.1.1))
+    dune))
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project

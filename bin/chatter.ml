@@ -1,10 +1,7 @@
 open Cmdliner
 
 
-(*** ********************* ***)
-(*** Application glue code ***)
-(*** ********************* ***)
-
+(* Application glue code *)
 
 let main addr runner =
   Eio_main.run @@ fun env ->
@@ -12,8 +9,10 @@ let main addr runner =
   and domain_mgr = Eio.Stdenv.domain_mgr env
   and stdin = Eio.Stdenv.stdin env
   and stdout = Eio.Stdenv.stdout env
-  and clock = Eio.Stdenv.clock env in
-  runner ~domain_mgr ~net ~addr ~stdin ~stdout ~clock
+  and stderr = Eio.Stdenv.stderr env
+  and clock = Eio.Stdenv.mono_clock env in
+  let ui = Lib.Ui.make_console ~stdout ~stdin ~stderr () in
+  runner ~domain_mgr ~net ~addr ~ui ~clock
 
 
 let server_main port =
@@ -31,9 +30,7 @@ let client_main host port =
       print_endline "Invalid IpV4 host address"
 
 
-(*** ********************** ***)
-(*** Command-line interface ***)
-(*** ********************** ***)
+(* Command-line interface *)
 
 
 let version = "0.1"
@@ -62,7 +59,7 @@ let client_cmd =
 
 let main_cli =
   let name = "chatter.exe" in
-  let doc = "Chatter, a simple one-on-one chat application." in
+  let doc = "Chatter, a simple peer-to-peer chat application." in
   let info = Cmd.info name ~doc in
   Cmd.group info [server_cmd; client_cmd]
 
