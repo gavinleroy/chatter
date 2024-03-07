@@ -123,7 +123,8 @@ let run_ui_reader loop_until mailboxes ui clock =
   Stream.add mailboxes.netout (`Message (msg_id, line))
 
 
-let start_chat ~sw ~domain_mgr ~remote_name ~socket ~ui ~clock =
+let start_chat ~domain_mgr ~remote_name ~socket ~ui ~clock =
+  Switch.run @@ fun sw ->
   let mailboxes =
     { netout = Stream.create 0
     ; uiout  = Stream.create 0

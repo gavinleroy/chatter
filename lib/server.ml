@@ -20,7 +20,7 @@ let run ~domain_mgr ~net ~addr ~ui ~clock =
         begin
           let remote_name = Format.asprintf "%a" Eio.Net.Sockaddr.pp addr in
           Ui.info "Client connected!";
-          Chat.start_chat ~sw ~domain_mgr ~socket ~ui ~clock ~remote_name
+          Chat.start_chat ~domain_mgr ~socket ~ui ~clock ~remote_name
           |> Protocol.error_msg_to_string
           |> Ui.info
         end
